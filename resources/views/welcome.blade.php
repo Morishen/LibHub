@@ -148,7 +148,16 @@
                         </li>
                     @else
                         <li class="nav-item ms-2">
-                            <a href="{{ route('catalog.index') }}" class="btn btn-primary">Masuk ke Dashboard</a>
+                            <a href="{{ route('dashboard') }}" class="btn btn-primary">Masuk ke Dashboard</a>
+                        </li>
+                        <!-- Tambahan: tombol logout (POST) -->
+                        <li class="nav-item ms-2">
+                            <form method="POST" action="{{ route('logout') }}">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-secondary">
+                                    Logout
+                                </button>
+                            </form>
                         </li>
                     @endguest
                 </ul>

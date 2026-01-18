@@ -163,6 +163,9 @@
                                     <form action="{{ route('loans.store') }}" method="POST" class="mb-0">
                                         @csrf
                                         <input type="hidden" name="book_id" value="{{ $book->id }}">
+                                        <input type="hidden" name="user_id" value="{{ auth()->id() }}">
+                                        <input type="hidden" name="borrow_date" value="{{ now()->toDateString() }}">
+                                        <input type="hidden" name="due_date" value="{{ now()->addDays(7)->toDateString() }}">
                                         <button type="submit" 
                                                 class="btn btn-primary btn-sm px-3"
                                                 onclick="return confirm('Pinjam buku: {{ $book->title }}?')">

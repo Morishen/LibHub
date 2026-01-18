@@ -44,7 +44,7 @@
                     @auth
                         @if(auth()->user()->is_admin)
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ route('admin.dashboard') }}">
+                                <a class="nav-link" href="{{ route('dashboard') }}">
                                     <i class="bi bi-speedometer2 me-1"></i>Dashboard Admin
                                 </a>
                             </li>
@@ -55,7 +55,7 @@
                                 </a>
                             </li>
                             <li class="nav-item">
-                                <a class="nav-link" href="{{ route('member.dashboard') }}">
+                                <a class="nav-link" href="{{ route('dashboard') }}">
                                     <i class="bi bi-house-door me-1"></i>Dashboard
                                 </a>
                             </li>

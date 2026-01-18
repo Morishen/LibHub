@@ -160,6 +160,27 @@
                                 <small class="text-muted">Jumlah kopi fisik yang tersedia</small>
                             </div>
                         </div>
+
+                        <!-- ADDED: Available copies -->
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="available_copies" class="form-label">Kopi Tersedia *</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">
+                                        <i class="bi bi-check2-circle"></i>
+                                    </span>
+                                    <input type="number" class="form-control @error('available_copies') is-invalid @enderror"
+                                           id="available_copies" name="available_copies"
+                                           value="{{ old('available_copies', $book->available_copies ?? ($book->total_copies ?? 1)) }}"
+                                           min="0" required>
+                                </div>
+                                @error('available_copies')
+                                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                                @enderror
+                                <small class="text-muted">Kopi yang bisa dipinjam saat ini</small>
+                            </div>
+                        </div>
+                        <!-- END ADDED -->
                         
                         <!-- Book Cover Image -->
                         <div class="mb-4">

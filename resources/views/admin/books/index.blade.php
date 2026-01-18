@@ -22,6 +22,18 @@
             </button>
         </div>
     </div>
+
+    <!-- ADDED: Safe defaults for categories and stats -->
+    @php
+        $categories = isset($categories) ? $categories : collect();
+        $stats = isset($stats) ? $stats : [
+            'total_books' => $books->total(),
+            'available_books' => 0,
+            'borrowed_books' => 0,
+            'unavailable_books' => 0,
+        ];
+    @endphp
+    <!-- END ADDED -->
     
     <!-- Search & Filter -->
     <div class="card border-0 shadow-sm mb-4">

@@ -4,7 +4,6 @@
 
 @section('content')
 <div class="container">
-    <!-- Welcome Section -->
     <div class="row mb-4">
         <div class="col-12">
             <div class="card border-0 bg-primary text-white shadow-sm">
@@ -20,9 +19,16 @@
                             </p>
                         </div>
                         <div class="col-md-4 text-md-end">
-                            <a href="{{ route('catalog.index') }}" class="btn btn-light">
+                            <a href="{{ route('catalog.index') }}" class="btn btn-light me-2">
                                 <i class="bi bi-search me-1"></i>Cari Buku
                             </a>
+                            
+                            <form action="{{ route('logout') }}" method="POST" class="d-inline">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-light">
+                                    <i class="bi bi-box-arrow-right me-1"></i>Keluar
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </div>
@@ -31,22 +37,19 @@
     </div>
     
     <div class="row">
-        <!-- Profile Card -->
         <div class="col-lg-4 mb-4">
             <div class="card border-0 shadow-sm h-100">
                 <div class="card-body text-center">
-                    <!-- Profile Picture Placeholder -->
                     <div class="mb-4">
                         <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" 
                              style="width: 120px; height: 120px;">
-                            <span class="fs-1">{{ substr(auth()->user()->name, 0, 1) }}</span>
+                            <span class="fs-1">{{ strtoupper(substr(auth()->user()->name, 0, 1)) }}</span>
                         </div>
                     </div>
                     
                     <h5 class="card-title">{{ auth()->user()->name }}</h5>
                     <p class="text-muted mb-4">{{ auth()->user()->email }}</p>
                     
-                    <!-- User Info -->
                     <div class="text-start">
                         @if(auth()->user()->phone)
                             <p class="mb-2">
@@ -72,9 +75,7 @@
             </div>
         </div>
         
-        <!-- Loan Statistics -->
         <div class="col-lg-8">
-            <!-- Stats Cards -->
             <div class="row mb-4">
                 <div class="col-md-4 mb-3">
                     <div class="card border-0 shadow-sm">
@@ -113,7 +114,6 @@
                 </div>
             </div>
             
-            <!-- Recent Loans -->
             <div class="card border-0 shadow-sm">
                 <div class="card-header bg-white border-0 pt-3">
                     <div class="d-flex justify-content-between align-items-center">
@@ -168,7 +168,7 @@
                                                         <i class="bi bi-exclamation-triangle me-1"></i>Terlambat
                                                     </span>
                                                 @else
-                                                    <span class="badge bg-warning">
+                                                    <span class="badge bg-warning text-dark">
                                                         <i class="bi bi-clock me-1"></i>Dipinjam
                                                     </span>
                                                 @endif
