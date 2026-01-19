@@ -5,41 +5,110 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\User;
-use App\Models\Loan; // Wajib di-import
+use App\Models\Loan; 
 use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
     /**
-     * Menampilkan halaman edit profil beserta statistik dan riwayat pinjaman.
-     * Ini memperbaiki error 'Undefined variable $activeLoansCount' dan '$loans'.
+     * Menampilkan daftar pengguna khusus untuk Admin.
+     */
+    public function indexUsers() {
+        // Menggunakan properti is_admin secara langsung jika isAdmin() tidak didefinisikan di Model
+        if (!Auth::user()->is_admin) {
+            return redirect('/dashboard')->with('error', 'Akses ditolak.');
+        }
+
+        $users = User::where('is_admin', 0)->latest()->paginate(10);
+        return view('admin.users.index', compact('users'));
+    }
+
+    /**
+     * FITUR BARU: Menghapus Anggota (Hanya Admin).
+     */
+    public function destroyUser($id) {
+        if (!Auth::user()->is_admin) {
+            return redirect('/dashboard')->with('error', 'Akses ditolak.');
+        }
+
+        $user = User::findOrFail($id);
+
+        // Proteksi: Cek apakah user masih memiliki pinjaman aktif yang belum dikembalikan
+        $activeLoans = Loan::where('user_id', $user->id)->whereNull('returned_at')->count();
+
+        if ($activeLoans > 0) {
+            return back()->with('error', 'Anggota tidak bisa dihapus karena masih memiliki pinjaman aktif!');
+        }
+
+        $user->delete();
+        return redirect()->route('admin.users.index')->with('success', 'Anggota berhasil dihapus dari sistem.');
+    }
+
+    /**
+     * Menampilkan halaman profil (Hanya Lihat).
+     */
+    public function showProfile() {
+        $user = Auth::user();
+
+        if ($user->is_admin) {
+            $activeLoansCount = 0;
+            $completedLoansCount = 0;
+            $overdueLoansCount = 0;
+        } else {
+            $activeLoansCount = Loan::where('user_id', $user->id)
+                ->whereNull('returned_at')
+                ->count();
+                
+            $completedLoansCount = Loan::where('user_id', $user->id)
+                ->whereNotNull('returned_at')
+                ->count();
+                
+            $overdueLoansCount = Loan::where('user_id', $user->id)
+                ->whereNull('returned_at')
+                ->whereDate('due_date', '<', now())
+                ->count();
+        }
+
+        return view('dashboard.member.profile', compact(
+            'user', 
+            'activeLoansCount', 
+            'completedLoansCount', 
+            'overdueLoansCount'
+        ));
+    }
+
+    /**
+     * Menampilkan halaman FORM edit profil.
      */
     public function editProfile() {
         $user = Auth::user();
 
-        // 1. Ambil Riwayat Peminjaman untuk tabel di bawah profil
-        // Ini memperbaiki error pada image_8c9c3f.png baris 68
-        $loans = Loan::with('book')
-            ->where('user_id', $user->id)
-            ->latest()
-            ->take(5) // Ambil 5 riwayat terakhir saja untuk pratinjau
-            ->get();
+        if ($user->is_admin) {
+            $loans = collect();
+            $activeLoansCount = 0;
+            $completedLoansCount = 0;
+            $overdueLoansCount = 0;
+        } else {
+            $loans = Loan::with('book')
+                ->where('user_id', $user->id)
+                ->latest()
+                ->take(5)
+                ->get();
 
-        // 2. Mengambil statistik pinjaman untuk widget sidebar
-        $activeLoansCount = Loan::where('user_id', $user->id)
-            ->whereNull('returned_at')
-            ->count();
-            
-        $completedLoansCount = Loan::where('user_id', $user->id)
-            ->whereNotNull('returned_at')
-            ->count();
-            
-        $overdueLoansCount = Loan::where('user_id', $user->id)
-            ->whereNull('returned_at')
-            ->whereDate('due_date', '<', now())
-            ->count();
+            $activeLoansCount = Loan::where('user_id', $user->id)
+                ->whereNull('returned_at')
+                ->count();
+                
+            $completedLoansCount = Loan::where('user_id', $user->id)
+                ->whereNotNull('returned_at')
+                ->count();
+                
+            $overdueLoansCount = Loan::where('user_id', $user->id)
+                ->whereNull('returned_at')
+                ->whereDate('due_date', '<', now())
+                ->count();
+        }
 
-        // Pastikan semua variabel dikirim ke view menggunakan compact()
         return view('dashboard.member.edit', compact(
             'user', 
             'loans',
@@ -53,7 +122,6 @@ class AuthController extends Controller
      * Update data profil di database.
      */
     public function updateProfile(Request $request) {
-        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         $request->validate([
@@ -63,14 +131,9 @@ class AuthController extends Controller
             'address' => ['nullable', 'string'], 
         ]);
 
-        $user->update([
-            'name' => $request->name,
-            'email' => $request->email,
-            'phone' => $request->phone,
-            'address' => $request->address,
-        ]);
+        $user->update($request->only(['name', 'email', 'phone', 'address']));
 
-        return back()->with('success', 'Profil berhasil diperbarui!');
+        return redirect()->route('profile.show')->with('success', 'Profil berhasil diperbarui!');
     }
 
     // --- FUNGSI AUTH STANDAR ---
@@ -83,10 +146,6 @@ class AuthController extends Controller
         return view('auth.register'); 
     }
 
-    public function showForgotPassword() {
-        return view('auth.forgot-password'); 
-    }
-
     public function login(Request $request) {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
@@ -95,6 +154,11 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $request->session()->regenerate();
+            
+            if (Auth::user()->is_admin) {
+                return redirect()->route('admin.dashboard');
+            }
+            
             return redirect()->intended('/dashboard');
         }
 
@@ -124,6 +188,10 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         return redirect('/');
+    }
+
+    public function showForgotPassword() {
+        return view('auth.forgot-password'); 
     }
 
     public function handleForgotPassword(Request $request) {

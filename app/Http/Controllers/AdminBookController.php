@@ -5,18 +5,30 @@ namespace App\Http\Controllers;
 use App\Models\Book;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
+/**
+ * PERBAIKAN: Nama class sesuai dengan nama file.
+ * Logika dipisahkan agar Admin tidak tumpang tindih dengan rute Member.
+ */
 class AdminBookController extends Controller
 {
     /**
-     * Menampilkan daftar semua buku (untuk admin).
+     * Menampilkan daftar semua buku untuk Admin (Halaman Kelola Buku).
      */
     public function index()
     {
-        // Mengurutkan dari yang terbaru agar admin mudah melihat buku baru
         $books = Book::with('category')->latest()->paginate(15);
-        return view('admin.books.index', compact('books'));
+        $categories = Category::orderBy('name')->get();
+        
+        // PERBAIKAN: Mengarah ke view index admin, bukan form/catalog
+        return view('admin.books.index', [
+            'books' => $books,
+            'categories' => $categories,
+            'book' => new Book() 
+        ]);
     }
 
     /**
@@ -25,7 +37,6 @@ class AdminBookController extends Controller
     public function create()
     {
         $categories = Category::orderBy('name')->get();
-        // Menggunakan view admin.books.form sesuai kode awal Anda
         return view('admin.books.form', [
             'book' => new Book(),
             'categories' => $categories
@@ -49,18 +60,25 @@ class AdminBookController extends Controller
             'total_copies'     => 'required|integer|min:1',
         ]);
 
-        // LOGIKA TAMBAHAN: Otomatis set available_copies sama dengan total_copies saat buku baru dibuat
         $validated['available_copies'] = $request->total_copies;
 
-        // Upload cover jika ada (Disarankan simpan path-nya, bukan filenya langsung di DB)
         if ($request->hasFile('cover_image')) {
-            $path = $request->file('cover_image')->store('covers', 'public');
-            $validated['cover_image'] = $path;
+            $validated['cover_image'] = $request->file('cover_image')->store('covers', 'public');
         }
 
         Book::create($validated);
 
         return redirect()->route('admin.books.index')->with('success', 'Buku berhasil ditambahkan.');
+    }
+
+    /**
+     * PERBAIKAN: Menangani rute show agar tidak error.
+     * Admin akan diarahkan ke edit atau jika ingin melihat detail bisa ke catalog.show.
+     */
+    public function show(Book $book)
+    {
+        // Secara default diarahkan ke edit karena Admin biasanya masuk ke sini untuk mengelola
+        return redirect()->route('admin.books.edit', $book);
     }
 
     /**
@@ -89,16 +107,15 @@ class AdminBookController extends Controller
             'total_copies'     => 'required|integer|min:1',
         ]);
 
+        // Hitung selisih stok agar ketersediaan buku sinkron
         $diff = $request->total_copies - $book->total_copies;
         $validated['available_copies'] = max(0, $book->available_copies + $diff);
 
         if ($request->hasFile('cover_image')) {
-            // Hapus foto lama jika ada
             if ($book->cover_image) {
                 Storage::disk('public')->delete($book->cover_image);
             }
-            $path = $request->file('cover_image')->store('covers', 'public');
-            $validated['cover_image'] = $path;
+            $validated['cover_image'] = $request->file('cover_image')->store('covers', 'public');
         }
 
         $book->update($validated);
@@ -111,12 +128,46 @@ class AdminBookController extends Controller
      */
     public function destroy(Book $book)
     {
-        // Hapus file gambar dari storage sebelum data dihapus
         if ($book->cover_image) {
             Storage::disk('public')->delete($book->cover_image);
         }
         
         $book->delete();
         return redirect()->route('admin.books.index')->with('success', 'Buku berhasil dihapus.');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FITUR KATEGORI
+    |--------------------------------------------------------------------------
+    */
+
+    public function indexCategories()
+    {
+        $categories = Category::withCount('books')->orderBy('name')->get();
+        return view('admin.books.categories', compact('categories'));
+    }
+
+    public function storeCategory(Request $request)
+    {
+        $request->validate([
+            'name' => 'required|string|max:50|unique:categories,name',
+        ]);
+
+        Category::create(['name' => $request->name]);
+
+        return redirect()->route('admin.categories.index')->with('success', 'Kategori berhasil dibuat.');
+    }
+
+    public function destroyCategory($id)
+    {
+        $category = Category::findOrFail($id);
+
+        if ($category->books()->count() > 0) {
+            return back()->with('error', 'Kategori tidak bisa dihapus karena masih digunakan oleh buku.');
+        }
+
+        $category->delete();
+        return redirect()->route('admin.categories.index')->with('success', 'Kategori berhasil dihapus.');
     }
 }

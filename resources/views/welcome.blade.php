@@ -189,7 +189,7 @@
                             <a href="{{ route('catalog.index') }}" class="btn btn-light btn-lg px-4">
                                 <i class="bi bi-book me-2"></i>Jelajahi Katalog
                             </a>
-                            <a href="{{ route('member.dashboard') }}" class="btn btn-outline-light btn-lg px-4">
+                            <a href="{{ route('dashboard') }}" class="btn btn-outline-light btn-lg px-4">
                                 <i class="bi bi-speedometer2 me-2"></i>Dashboard Saya
                             </a>
                         @endguest

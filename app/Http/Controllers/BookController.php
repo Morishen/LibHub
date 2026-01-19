@@ -2,49 +2,115 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
 use App\Models\Book;
 use App\Models\Category;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage; // Tambahkan untuk handle gambar
 
 class BookController extends Controller
 {
-public function index(Request $request)
-{
-    $search   = $request->get('search');
-    $category = $request->get('category');
-    $sort     = $request->get('sort', 'latest');
+    public function index(Request $request)
+    {
+        // 1. Logika proteksi: Jika yang login Admin, lempar ke halaman index Admin
+        if (Auth::check() && Auth::user()->isAdmin()) {
+            return redirect()->route('admin.books.index');
+        }
 
-    $query = Book::with('category');
+        // 2. Query untuk katalog member
+        $query = Book::with('category');
 
-    if ($search) {
-        $query->where(function($q) use ($search) {
-            $q->where('title', 'like', "%{$search}%")
-              ->orWhere('author', 'like', "%{$search}%")
-              ->orWhere('isbn', 'like', "%{$search}%");
-        });
+        if ($request->filled('search')) {
+            $query->where(function($q) use ($request) {
+                $q->where('title', 'like', '%' . $request->search . '%')
+                  ->orWhere('author', 'like', '%' . $request->search . '%')
+                  ->orWhere('isbn', 'like', '%' . $request->search . '%')
+                  ->orWhere('publisher', 'like', '%' . $request->search . '%'); // Tambahkan pencarian penerbit
+            });
+        }
+
+        if ($request->filled('category')) {
+            $query->where('category_id', $request->category);
+        }
+
+        $books = $query->latest()->paginate(12);
+        $categories = Category::all();
+
+        return view('catalog.index', compact('books', 'categories'));
     }
 
-    if ($category) {
-        $query->where('category_id', $category);
-    }
-
-    if ($sort === 'title') {
-        $query->orderBy('title');
-    } else {
-        $query->latest();
-    }
-
-    $books = $query->paginate(12);
-    $categories = Category::orderBy('name')->get();
-
-    return view('catalog.index', compact('books', 'categories'));
-}
-
-    // Menampilkan detail buku
     public function show(Book $book)
     {
-        $book->load('category', 'loans.user'); // jika relasi loans dan user sudah dibuat
-        return view('catalog.show', compact('book'));
+        $book->load(['category']);
+        
+        $recentLoans = collect(); 
+        if(Auth::check() && Auth::user()->isAdmin()) {
+            if (class_exists('\App\Models\Loan')) {
+                $recentLoans = \App\Models\Loan::with('user')
+                                ->where('book_id', $book->id)
+                                ->latest()
+                                ->take(5)
+                                ->get();
+            }
+        }
+
+        return view('catalog.show', compact('book', 'recentLoans'));
+    }
+
+    // ============================================================
+    // TAMBAHKAN FUNGSI DI BAWAH INI UNTUK HANDLE FORM ADMIN
+    // ============================================================
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:200',
+            'isbn' => 'required|string|max:20|unique:books,isbn',
+            'author' => 'required|string|max:100',
+            'publisher' => 'nullable|string|max:100', // Sinkron database
+            'publication_year' => 'nullable|integer|digits:4', // Sinkron database
+            'category_id' => 'required|exists:categories,id',
+            'total_copies' => 'required|integer|min:1',
+            'available_copies' => 'required|integer|min:0|max:'.$request->total_copies,
+            'cover_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'description' => 'nullable|string'
+        ]);
+
+        if ($request->hasFile('cover_image')) {
+            $validated['cover_image'] = $request->file('cover_image')->store('covers', 'public');
+        }
+
+        Book::create($validated);
+
+        return redirect()->route('admin.books.index')->with('success', 'Buku berhasil ditambahkan.');
+    }
+
+    public function update(Request $request, Book $book)
+    {
+        $validated = $request->validate([
+            'title' => 'required|string|max:200',
+            'isbn' => 'required|string|max:20|unique:books,isbn,'.$book->id,
+            'author' => 'required|string|max:100',
+            'publisher' => 'nullable|string|max:100', // Sinkron database
+            'publication_year' => 'nullable|integer|digits:4', // Sinkron database
+            'category_id' => 'required|exists:categories,id',
+            'total_copies' => 'required|integer|min:1',
+            'available_copies' => 'required|integer|min:0',
+            'cover_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'description' => 'nullable|string'
+        ]);
+
+        if ($request->hasFile('cover_image')) {
+            // Hapus gambar lama jika ada
+            if ($book->cover_image) {
+                Storage::disk('public')->delete($book->cover_image);
+            }
+            $validated['cover_image'] = $request->file('cover_image')->store('covers', 'public');
+        }
+
+        $book->update($validated);
+
+        return redirect()->route('admin.books.index')->with('success', 'Buku berhasil diperbarui.');
     }
 }
-

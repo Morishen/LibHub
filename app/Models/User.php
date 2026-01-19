@@ -42,17 +42,16 @@ class User extends Authenticatable
      */
     public function loans()
     {
-        return $this->hasMany(Loan::class);
+        // Menggunakan string path lengkap untuk menghindari error jika class belum di-import
+        return $this->hasMany(\App\Models\Loan::class);
     }
 
     /**
-
      * Helper: cek apakah user adalah admin.
-     * Diperbarui sesuai kolom 'is_admin' di database Anda.
+     * Menggunakan casting boolean dari properti agar lebih konsisten.
      */
     public function isAdmin(): bool
     {
-        // Mengembalikan true jika is_admin bernilai 1
-        return (bool) $this->is_admin;
+        return $this->is_admin === true || $this->is_admin === 1;
     }
 }
